@@ -26,7 +26,7 @@ router.post('/:propertyId', async (req, res) => {
 });
 
 // Add a user to a tenant's sub-collection
-router.post('/:propertyId/tenants/users', async (req, res) => {
+router.post('/:propertyId/tenants/Teantuser', async (req, res) => {
     const propertyId = req.params.propertyId;
     const user = req.body;
     user.propertyId = propertyId;
@@ -42,7 +42,7 @@ router.post('/:propertyId/tenants/users', async (req, res) => {
 
     // Add the user to the tenant's sub-collection
     try {
-        const userRef = await db.collection('tenants').doc(tenant.docs[0].id).collection('users').add(user);
+        const userRef = await db.collection('tenants').doc(tenant.docs[0].id).collection('Teantuser').add(user);
         user.id = userRef.id;
         res.json(user);
     } catch (error) {
@@ -50,8 +50,8 @@ router.post('/:propertyId/tenants/users', async (req, res) => {
     }
 });
 
-// Get all users for a specific tenant
-router.get('/:propertyId/tenants/users', async (req, res) => {
+// Get all Teantuser for a specific tenant
+router.get('/:propertyId/tenants/Teantuser', async (req, res) => {
     const propertyId = req.params.propertyId;
     const tenant = await db.collection('tenants').where('propertyId', '==', propertyId).get();
     if (tenant.empty) {
@@ -59,26 +59,57 @@ router.get('/:propertyId/tenants/users', async (req, res) => {
         return;
     }
 
-    const users = await db.collection('tenants').doc(tenant.docs[0].id).collection('users').get();
-    const usersList = users.docs.map(user => user.data());
-    res.json(usersList);
+    const Teantuser = await db.collection('tenants').doc(tenant.docs[0].id).collection('Teantuser').get();
+    const TeantuserList = Teantuser.docs.map(user => user.data());
+    res.json(TeantuserList);
 });
 
 // Get all tenants for a specific property
 router.get('/:propertyId/tenants', async (req, res) => {
     const propertyId = req.params.propertyId;
-    const tenants = await db.collection('tenants').where('propertyId', '==', propertyId).get();
+    const tenants = await db.collectionGroup('Teantuser').get();
+
     const tenantsList = tenants.docs.map(tenant => tenant.data());
-    res.json(tenantsList);
+    const tenantsForProperty = tenantsList.filter(tenant => tenant.propertyId === propertyId);
+
+    res.json(tenantsForProperty);
 });
 
-// Get details of a specific tenant
-router.get('/properties/:propertyId/tenants/:tenantId', async (req, res) => {
-    const tenantId = req.params.tenantId;
-    const tenant = await db.collection('tenants').doc(tenantId).get();
-    res.json(tenant.data());
-});
+// Get Property details for a specific tenant
+router.get('/:userID/tenants/property', async (req, res) => {
+    const userID = req.params.userID;
+    const tenants = await db.collectionGroup('Teantuser').get();
 
+    const tenantsList = tenants.docs.map(tenant => tenant.data());
+    console.log(tenantsList[0].userID);
+
+    const tenant = tenantsList.filter(tenant => tenant.userID === userID);
+
+    if (tenant.length === 0) {
+        res.status(400).json({ error: 'Tenant does not exist' });
+        return;
+    }
+
+    const property = await db.collection('properties').doc(tenant[0].propertyId).get();
+    res.json(property.data());
+}
+);
+
+// Get Monthly rent for a specific tenant
+router.get('/:userID/monthly-rent', async (req, res) => {
+    const userID = req.params.userID;
+    const tenants = await db.collectionGroup('Teantuser').get();
+
+    const tenantsList = tenants.docs.map(tenant => tenant.data());
+    const tenant = tenantsList.filter(tenant => tenant.userID === userID);
+    
+    if (tenant.length === 0) {
+        res.status(400).json({ error: 'Tenant does not exist' });
+        return;
+    }
+
+    res.json({ monthlyRent: tenant[0].monthlyRent });
+});
 // Update a tenant
 router.put('/properties/:propertyId/tenants/:tenantId', async (req, res) => {
     const tenantId = req.params.tenantId;
@@ -181,55 +212,6 @@ router.post('/properties/:propertyId/tenants/billing-receipt', async (req, res) 
 
     // Send email to tenants
     res.json({ message: 'Billing receipt sent successfully' });
-});
-
-// Create a Ticket for a tenant support
-router.post('/properties/:propertyId/tenants/:tenantId/tickets', async (req, res) => {
-    const tenantId = req.params.tenantId;
-    const { subject, message } = req.body;
-    const ticketData = {
-        subject,
-        message,
-        status: 'open',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    };
-
-    try {
-        const ticketRef = await db.collection('tickets').add(ticketData);
-        res.json({ ticketId: ticketRef.id });
-    } catch (error) {
-        res.status(500).json({ error: 'Error creating ticket' });
-    }
-});
-
-// Get all tickets for a specific tenant
-router.get('/properties/:propertyId/tenants/:tenantId/tickets', async (req, res) => {
-    const tenantId = req.params.tenantId;
-    const tickets = await db.collection('tickets').where('tenantId', '==', tenantId).get();
-    const ticketsList = tickets.docs.map(ticket => ticket.data());
-    res.json(ticketsList);
-});
-
-// Get details of a specific
-router.get('/properties/:propertyId/tenants/:tenantId/tickets/:ticketId', async (req, res) => {
-    const ticketId = req.params.ticketId;
-    const ticket = await db.collection('tickets').doc(ticketId).get();
-    res.json(ticket.data());
-});
-
-// Respond to a ticket
-router.put('/properties/:propertyId/tenants/:tenantId/tickets/:ticketId', async (req, res) => {
-    const ticketId = req.params.ticketId;
-    const ticket = req.body;
-    ticket.updatedAt = new Date().toISOString();
-
-    try {
-        await db.collection('tickets').doc(ticketId).update(ticket);
-        res.json({ message: 'Ticket updated successfully' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error updating ticket' });
-    }
 });
 
 module.exports = router;

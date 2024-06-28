@@ -70,7 +70,8 @@ router.delete('/properties/:propertyId/auctions/:auctionId', async (req, res) =>
 });
 
 // Place a bid on an auction
-router.post('/properties/:propertyId/auctions/bids', async (req, res) => {
+router.post('/:propertyId/:BiderId/bids', async (req, res) => {
+    // console.log('req.body:', req.body);
     const propertyId = req.params.propertyId;
     const bid = req.body;
     const auctions = await db.collection('auctions').where('propertyId', '==', propertyId).where('status', '==', 'open').get();
@@ -90,7 +91,7 @@ router.post('/properties/:propertyId/auctions/bids', async (req, res) => {
     }
 
     bid.auctionId = auctionId;
-    bid.bidderId = 'rDtiiDrvZqWU2DGYknY0bG2Ln2h1';
+    bid.bidderId = req.params.BiderId;
     bid.createdAt = new Date().toISOString();
     try {
         const bidRef = await db.collection('bids').add(bid);
@@ -99,7 +100,7 @@ router.post('/properties/:propertyId/auctions/bids', async (req, res) => {
         res.json(bid);
     }
     catch (error) {
-        res.status(400).json({ error: 'Error placing bid' });
+        res.status(400).json({ error: 'Error placing bid' , error: error});
     }
 });
 

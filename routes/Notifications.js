@@ -48,23 +48,35 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const registrationToken = 'cmSzxjojQ-KfYcrQlxy7-x:APA91bFuypEJpdkB4jgIh--EQ_J8o6GhIHuKQJAVhotTSqIEfk-Xw4gOCNpy6dNvA7Mwbzo5C9BdklG4s-ahki8copn_VUtM1jqTMy49f6eDC9FXjrU_z95Er2KwSmMWGZow0Qd0yHf9';
+        const id = req.body.userID;
+        // find RegistrationToken from users collection using userID
+        const user = await db.collection('users').doc(id).get();
+        if (!user.exists) {
+            res.status(404).send('User not found');
+            return;
+        }
+        const registrationToken = user.data().FCMToken;
+
         const message = {
             notification: {
-                title: 'New Deal Shared!',
-                body: 'Check out the new deal shared by the admin!'
+                title: req.body.title || 'New Notification',
+                body: req.body.body || 'You have a new notification'
             },
             token: registrationToken
         };
 
         const sendNotificationPromise = getMessaging().send(message);
         const saveDataPromise = db.collection('notifications').add({
-            title: 'New Deal Shared!',
-            body: 'Check out the new deal shared by the admin!',
-            PropertyID: req.body.PropertyID,
+            title: req.body.title || 'You have a new notification',
+
+            body: req.body.body || 'You have a new notification',
+
+            userID: req.body.userID,
+            PropertyID: req.body.PropertyID || null,
+
             time: new Date(),
             status: 'unread',
-            type: 'deal',
+            type: req.body.type || 'general',
             Delivered_Status: true // assuming Delivered_Status is a boolean
         });
 
@@ -77,6 +89,25 @@ router.post('/', async (req, res) => {
         res.status(500).send('Error occurred');
     }
 });
+
+// get all notifications for a specific user
+
+router.get('/users/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const notifications = [];
+        const snapshot = await db.collection('notifications').where('userID', '==', id).get();
+        snapshot.forEach(doc => {
+            notifications.push(doc.data());
+        });
+        res.status(200).send(notifications);
+    } catch (error) {
+        res.status(500).send(error);
+    }
+}
+);
+
+
 // Update a notification
 
 router.put('/:id', async (req, res) => {
